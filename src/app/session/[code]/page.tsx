@@ -12,6 +12,7 @@ export default function SessionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const name = searchParams.get("name") || "";
+  const spectator = searchParams.get("spectator") === "1";
   const isNew = code === "new";
 
   const [session, setSession] = useState<SessionState | null>(null);
@@ -24,41 +25,48 @@ export default function SessionPage() {
     if (!name) { router.push("/"); return; }
 
     const socket = getSocket();
+    let joined = false;
 
-    socket.on("session-update", (state: SessionState) => {
+    const onSessionUpdate = (state: SessionState) => {
       setSession((prev) => {
         if (prev?.revealed && !state.revealed) setMyVote(null);
         return state;
       });
-    });
+    };
 
-    socket.on("disconnect", () => setDisconnected(true));
-    socket.on("connect", () => {
+    const onDisconnect = () => setDisconnected(true);
+
+    const onConnect = () => {
       setDisconnected(false);
-      // rejoin on reconnect
-      if (!isNew && code !== "new") {
-        socket.emit("join-session", code, name, (ok: boolean) => {
+      if (joined && !isNew) {
+        socket.emit("join-session", code, name, spectator, (ok: boolean) => {
           if (!ok) setError("Session expired");
         });
       }
-    });
+    };
+
+    socket.on("session-update", onSessionUpdate);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect", onConnect);
 
     if (isNew) {
       socket.emit("create-session", name, (newCode: string) => {
+        joined = true;
         window.history.replaceState(null, "", `/session/${newCode}?name=${encodeURIComponent(name)}`);
       });
     } else {
-      socket.emit("join-session", code, name, (ok: boolean) => {
+      socket.emit("join-session", code, name, spectator, (ok: boolean) => {
+        joined = true;
         if (!ok) setError("Session not found");
       });
     }
 
     return () => {
-      socket.off("session-update");
-      socket.off("disconnect");
-      socket.off("connect");
+      socket.off("session-update", onSessionUpdate);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect", onConnect);
     };
-  }, [code, name, isNew, router]);
+  }, [code, name, isNew, spectator, router]);
 
   const copyCode = useCallback(() => {
     if (!session) return;
@@ -95,9 +103,11 @@ export default function SessionPage() {
 
   const socket = getSocket();
   const isHost = session.host === socket.id;
-  const allVoted = session.players.every((p) => p.vote);
+  const voters = session.players.filter((p) => !p.spectator);
+  const spectators = session.players.filter((p) => p.spectator);
+  const allVoted = voters.every((p) => p.vote);
   const numericVotes = session.revealed
-    ? session.players.map((p) => parseFloat(p.vote ?? "")).filter((n) => !isNaN(n))
+    ? voters.map((p) => parseFloat(p.vote ?? "")).filter((n) => !isNaN(n))
     : [];
   const avg = numericVotes.length
     ? (numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length).toFixed(1)
@@ -180,9 +190,9 @@ export default function SessionPage() {
 
       {/* Players */}
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Players</h2>
+        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Voters</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {session.players.map((p) => (
+          {voters.map((p) => (
             <div
               key={p.id}
               className={`rounded-xl p-4 text-center transition-all ${
@@ -209,35 +219,52 @@ export default function SessionPage() {
             </div>
           ))}
         </div>
+        {spectators.length > 0 && (
+          <>
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3 mt-6">Spectators</h2>
+            <div className="flex flex-wrap gap-2">
+              {spectators.map((p) => (
+                <span
+                  key={p.id}
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm"
+                >
+                  👁️ {p.name}{p.id === socket.id && <span className="text-indigo-400"> (you)</span>}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Voting cards */}
-      <section className="mt-auto pt-4 border-t border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3 text-center">
-          {session.revealed ? "Votes revealed — waiting for new round" : "Pick your estimate"}
-        </h2>
-        <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-          {FIBONACCI.map((v) => (
-            <button
-              key={v}
-              onClick={() => {
-                setMyVote(v);
-                socket.emit("vote", session.code, v);
-              }}
-              disabled={session.revealed}
-              className={`w-14 h-20 sm:w-16 sm:h-24 rounded-xl text-lg sm:text-xl font-bold border-2 transition-all ${
-                session.revealed
-                  ? "opacity-40 cursor-not-allowed bg-slate-800 border-slate-700"
-                  : myVote === v
-                  ? "bg-indigo-600 border-indigo-400 scale-110 cursor-pointer"
-                  : "bg-slate-800 border-slate-600 hover:border-indigo-400 hover:scale-105 cursor-pointer"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </section>
+      {!spectator && (
+        <section className="mt-auto pt-4 border-t border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3 text-center">
+            {session.revealed ? "Votes revealed — waiting for new round" : "Pick your estimate"}
+          </h2>
+          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
+            {FIBONACCI.map((v) => (
+              <button
+                key={v}
+                onClick={() => {
+                  setMyVote(v);
+                  socket.emit("vote", session.code, v);
+                }}
+                disabled={session.revealed}
+                className={`w-14 h-20 sm:w-16 sm:h-24 rounded-xl text-lg sm:text-xl font-bold border-2 transition-all ${
+                  session.revealed
+                    ? "opacity-40 cursor-not-allowed bg-slate-800 border-slate-700"
+                    : myVote === v
+                    ? "bg-indigo-600 border-indigo-400 scale-110 cursor-pointer"
+                    : "bg-slate-800 border-slate-600 hover:border-indigo-400 hover:scale-105 cursor-pointer"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

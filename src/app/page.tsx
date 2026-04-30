@@ -8,6 +8,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [tab, setTab] = useState<"create" | "join">("create");
+  const [spectator, setSpectator] = useState(false);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +19,7 @@ export default function Home() {
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !joinCode.trim()) return;
-    router.push(`/session/${joinCode.trim()}?name=${encodeURIComponent(name.trim())}`);
+    router.push(`/session/${joinCode.trim()}?name=${encodeURIComponent(name.trim())}${spectator ? "&spectator=1" : ""}`);
   };
 
   const inputClass =
@@ -66,6 +67,17 @@ export default function Home() {
                 maxLength={6}
                 required
               />
+            )}
+            {tab === "join" && (
+              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={spectator}
+                  onChange={(e) => setSpectator(e.target.checked)}
+                  className="w-4 h-4 rounded accent-indigo-500"
+                />
+                Join as spectator (view only)
+              </label>
             )}
             <button
               type="submit"

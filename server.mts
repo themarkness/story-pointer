@@ -10,6 +10,7 @@ interface Player {
   id: string;
   name: string;
   vote: string | null;
+  spectator: boolean;
 }
 
 interface Session {
@@ -32,7 +33,8 @@ function sessionState(session: Session) {
   const players = Array.from(session.players.values()).map((p) => ({
     id: p.id,
     name: p.name,
-    vote: session.revealed ? p.vote : p.vote ? "hidden" : null,
+    vote: p.spectator ? null : session.revealed ? p.vote : p.vote ? "hidden" : null,
+    spectator: p.spectator,
   }));
   return { code: session.code, host: session.host, players, revealed: session.revealed };
 }
@@ -47,7 +49,7 @@ app.prepare().then(() => {
       const session: Session = {
         code,
         host: socket.id,
-        players: new Map([[socket.id, { id: socket.id, name, vote: null }]]),
+        players: new Map([[socket.id, { id: socket.id, name, vote: null, spectator: false }]]),
         revealed: false,
       };
       sessions.set(code, session);
@@ -56,10 +58,10 @@ app.prepare().then(() => {
       io.to(code).emit("session-update", sessionState(session));
     });
 
-    socket.on("join-session", (code: string, name: string, cb: (ok: boolean) => void) => {
+    socket.on("join-session", (code: string, name: string, spectator: boolean, cb: (ok: boolean) => void) => {
       const session = sessions.get(code);
       if (!session) return cb(false);
-      session.players.set(socket.id, { id: socket.id, name, vote: null });
+      session.players.set(socket.id, { id: socket.id, name, vote: null, spectator });
       socket.join(code);
       cb(true);
       io.to(code).emit("session-update", sessionState(session));
@@ -68,7 +70,7 @@ app.prepare().then(() => {
     socket.on("vote", (code: string, vote: string) => {
       const session = sessions.get(code);
       const player = session?.players.get(socket.id);
-      if (!player || session!.revealed) return;
+      if (!player || player.spectator || session!.revealed) return;
       player.vote = vote;
       io.to(code).emit("session-update", sessionState(session!));
     });
@@ -84,7 +86,7 @@ app.prepare().then(() => {
       const session = sessions.get(code);
       if (!session || socket.id !== session.host) return;
       session.revealed = false;
-      session.players.forEach((p) => (p.vote = null));
+      session.players.forEach((p) => { if (!p.spectator) p.vote = null; });
       io.to(code).emit("session-update", sessionState(session));
     });
 

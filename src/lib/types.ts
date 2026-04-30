@@ -2,6 +2,7 @@ export interface PlayerState {
   id: string;
   name: string;
   vote: string | null;
+  spectator: boolean;
 }
 
 export interface SessionState {
