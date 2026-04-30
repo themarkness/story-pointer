@@ -94,7 +94,11 @@ app.prepare().then(() => {
         if (!session) continue;
         session.players.delete(socket.id);
         if (session.players.size === 0) {
-          sessions.delete(room);
+          // keep session alive for 5 min so players can rejoin
+          setTimeout(() => {
+            const s = sessions.get(room);
+            if (s && s.players.size === 0) sessions.delete(room);
+          }, 5 * 60 * 1000);
         } else {
           if (session.host === socket.id) {
             session.host = session.players.keys().next().value!;
