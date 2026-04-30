@@ -98,7 +98,7 @@ export default function SessionPage() {
               }`}
             >
               <p className="font-medium truncate">{p.name}{p.id === socket.id && " (you)"}</p>
-              <p className="text-sm mt-1 text-slate-400">
+              <p className={`text-sm mt-1 ${session.revealed && p.vote && p.vote !== "?" ? "text-2xl font-bold text-white mt-2" : "text-slate-400"}`}>
                 {session.revealed
                   ? p.vote ?? "No vote"
                   : p.vote
@@ -109,6 +109,43 @@ export default function SessionPage() {
           ))}
         </div>
       </section>
+
+      {/* Results summary */}
+      {session.revealed && (() => {
+        const numericVotes = session.players
+          .map((p) => parseFloat(p.vote ?? ""))
+          .filter((n) => !isNaN(n));
+        const avg = numericVotes.length
+          ? (numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length).toFixed(1)
+          : null;
+        return (
+          <section className="mb-8 bg-slate-800 rounded-xl p-6 text-center">
+            <p className="text-slate-400 text-sm mb-1">Average</p>
+            <p className="text-4xl font-bold">{avg ?? "—"}</p>
+          </section>
+        );
+      })()}
+
+      {/* Host controls */}
+      {isHost && (
+        <section className="mb-8 flex justify-center gap-4">
+          {!session.revealed ? (
+            <button
+              onClick={() => socket.emit("reveal", session.code)}
+              className="px-6 py-3 bg-amber-600 hover:bg-amber-700 rounded-lg font-semibold transition-colors cursor-pointer"
+            >
+              Reveal Votes
+            </button>
+          ) : (
+            <button
+              onClick={() => socket.emit("new-round", session.code)}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors cursor-pointer"
+            >
+              New Round
+            </button>
+          )}
+        </section>
+      )}
 
       {/* Voting cards */}
       <section className="mt-auto">
