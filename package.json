@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx server.mts",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production tsx server.mts",
     "lint": "eslint"
   },
   "dependencies": {
