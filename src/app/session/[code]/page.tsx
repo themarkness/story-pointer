@@ -14,6 +14,7 @@ export default function SessionPage() {
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [error, setError] = useState("");
+  const [myVote, setMyVote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!name) {
@@ -23,7 +24,12 @@ export default function SessionPage() {
 
     const socket = getSocket();
 
-    socket.on("session-update", (state: SessionState) => setSession(state));
+    socket.on("session-update", (state: SessionState) => {
+      setSession((prev) => {
+        if (prev?.revealed && !state.revealed) setMyVote(null);
+        return state;
+      });
+    });
 
     if (isNew) {
       socket.emit("create-session", name, (newCode: string) => {
@@ -104,9 +110,27 @@ export default function SessionPage() {
         </div>
       </section>
 
-      {/* Voting placeholder - Slice 3 */}
-      <section className="mt-auto text-center text-slate-500 py-8">
-        Voting cards coming in Slice 3...
+      {/* Voting cards */}
+      <section className="mt-auto">
+        <h2 className="text-lg font-semibold mb-4">Your Vote</h2>
+        <div className="flex flex-wrap gap-3 justify-center">
+          {["1", "2", "3", "5", "8", "13", "21", "?"].map((v) => (
+            <button
+              key={v}
+              onClick={() => {
+                setMyVote(v);
+                socket.emit("vote", session.code, v);
+              }}
+              className={`w-16 h-24 rounded-xl text-xl font-bold border-2 transition-all cursor-pointer ${
+                myVote === v
+                  ? "bg-indigo-600 border-indigo-400 scale-110"
+                  : "bg-slate-800 border-slate-600 hover:border-indigo-400 hover:scale-105"
+              } ${session.revealed ? "opacity-50 pointer-events-none" : ""}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </section>
     </main>
   );
