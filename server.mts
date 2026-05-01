@@ -111,6 +111,5 @@ app.prepare().then(() => {
     });
   });
 
-  const port = parseInt(process.env.PORT || "3000", 10);
-  httpServer.listen(port, () => console.log(`> Ready on http://localhost:${port}`));
+  httpServer.listen(3000, () => console.log("> Ready on http://localhost:3000"));
 });
