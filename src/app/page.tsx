@@ -31,7 +31,7 @@ export default function Home() {
     <main className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <h1 className="text-4xl font-bold text-center mb-2">🃏 Story Pointer</h1>
-        <p className="text-slate-400 text-center mb-8">Planning poker for agile teams</p>
+        <p className="text-slate-400 text-center mb-8">Story pointer for ticket refinement sessions</p>
 
         <div className="flex mb-6 bg-slate-800 rounded-lg p-1">
           {(["create", "join"] as const).map((t) => (

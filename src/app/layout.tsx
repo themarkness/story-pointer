@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Story Pointer",
-  description: "Planning poker for agile teams",
+  description: "Story pointer for ticket refinement sessions",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
